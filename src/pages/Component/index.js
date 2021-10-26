@@ -14,7 +14,7 @@ import {
   Drawer,
   Select,
   Radio,
-  TimePicker,
+  Popover,
 } from 'antd';
 import { CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 /**
@@ -140,6 +140,8 @@ function Home() {
     getInitData,
   ] = useComponentList();
   const [visible, setVisible] = useState(false);
+  const [popVisible, setPopVisible] = useState(false);
+  const [switchVisible, setSwitchVisible] = useState(false);
   const [isAddType, setIsAddType] = useState(false);
 
   const onFinish = (values) => {
@@ -233,10 +235,21 @@ function Home() {
                 onToggleVisible(item);
               }}
             />,
-            <CloseOutlined
-              key="delete"
-              onClick={() => onDeleteComponent(item.id)}
-            />,
+            <>
+              <CloseOutlined
+                key="delete"
+                onClick={() => setPopVisible(!popVisible)}
+              />
+              <Popover
+                placement="topRight"
+                visible={popVisible}
+                content={<a>Close</a>}
+                title="Title"
+                trigger="click"
+              >
+                {/* <Button type="primary">Click me</Button> */}
+              </Popover>
+            </>,
           ]}
         >
           <Row>
