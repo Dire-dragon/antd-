@@ -10,6 +10,7 @@ import {
   Row,
   Col,
   Avatar,
+  Tag,
 } from 'antd';
 import { CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 /**
@@ -31,13 +32,16 @@ import {
 
 const { Content } = Layout;
 const { Meta } = Card;
+const { CheckableTag } = Tag;
+
+let initData = [];
 
 function useComponentType() {
   const [componentType, setComponentType] = useState([]);
 
+  //获取所有类型
   useEffect(async () => {
     const data = await getComponentType();
-    // console.log(typeof data.code);
     if (data.code === 0) {
       setComponentType([...data.data]);
     }
@@ -48,32 +52,68 @@ function useComponentType() {
 
 function useComponentList() {
   const [componentList, setComponentList] = useState([]);
-  const [filter, setFilter] = useState('');
+  const [typeFilterList, setTypeFilterList] = useState([]);
+  const [nameFilter, setNameFilter] = useState('');
 
+  //获取初始化列表
   useEffect(async () => {
     const dataSource = await getComponentList();
     if (dataSource.code !== 0) {
       console.log('获取数据失败！');
       return;
     }
-    const data = dataSource.data.filter((item) => {
-      return filter === '' || item.type.indexOf(filter);
+    initData = await dataSource.data;
+    setComponentList([...initData]);
+  }, []);
+
+  //更新列表
+  useEffect(async () => {
+    const data = initData.filter((item) => {
+      if (nameFilter !== '' && item.name.indexOf(nameFilter) === -1) {
+        return false;
+      }
+      if (typeFilterList.length === 0) {
+        return true;
+      }
+      if (typeFilterList.indexOf(item.type) > -1) {
+        return true;
+      }
     });
-    console.log(data);
 
     setComponentList([...data]);
-  }, [filter]);
+    console.log(typeFilterList);
+  }, [initData, typeFilterList.length, nameFilter]);
 
-  const onTypeFilter = (filter) => {
-    setFilterInfo(filter);
+  //更新类型过滤条件
+  const onTypeFilter = (tag) => {
+    let filter = [];
+    if (tag !== '') {
+      filter =
+        typeFilterList.indexOf(tag) === -1
+          ? [...typeFilterList, tag]
+          : typeFilterList.filter((t) => {
+              return t !== tag;
+            });
+    }
+    setTypeFilterList(filter);
   };
 
-  return [componentList, onTypeFilter];
+  //更新名称过滤
+  const onNameFilter = (tag) => {
+    setNameFilter(tag);
+  };
+
+  return [componentList, onTypeFilter, onNameFilter, typeFilterList];
 }
 
 function Home() {
   const [componentType] = useComponentType();
-  const [componentList, onTypeFilter] = useComponentList();
+  const [componentList, onTypeFilter, onNameFilter, typeFilterList] =
+    useComponentList();
+
+  const onFinish = (values) => {
+    onNameFilter(values.filter);
+  };
 
   const type = (
     <div className="component-type">
@@ -83,14 +123,13 @@ function Home() {
       </Button>
       {componentType.map((item) => {
         return (
-          <Button
-            type="text"
-            size="small"
+          <CheckableTag
             key={item.id}
-            onClick={() => onTypeFilter(item.id)}
+            checked={typeFilterList.indexOf(item.id) > -1}
+            onChange={() => onTypeFilter(item.id)}
           >
             {item.name}
-          </Button>
+          </CheckableTag>
         );
       })}
     </div>
@@ -98,9 +137,9 @@ function Home() {
 
   const othersType = (
     <div className="component-others">
-      <Form wrapperCol={{ span: 24 }} layout="inline">
+      <Form wrapperCol={{ span: 24 }} layout="inline" onFinish={onFinish}>
         <Form.Item label="其他选项:" />
-        <Form.Item label="配置名称：">
+        <Form.Item label="配置名称：" name="filter">
           <Input />
         </Form.Item>
       </Form>
