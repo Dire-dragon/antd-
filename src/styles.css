@@ -76,3 +76,12 @@ h3 {
   justify-content: center;
   opacity: 0.6;
 }
+
+.card-type {
+  text-align: center;
+}
+.card-component-add {
+  height: 170px;
+  line-height: 170px;
+  text-align: center;
+}

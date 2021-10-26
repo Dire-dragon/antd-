@@ -13,6 +13,7 @@ import { getAuthList, editAuth, addAuth } from '../../api/auth/index';
 const { Content } = Layout;
 
 function NewService1() {
+  // console.log(getAuthList());
   return (
     <Card>
       <Breadcrumb separator=">">
