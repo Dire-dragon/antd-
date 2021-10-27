@@ -40,6 +40,14 @@ const columns = [
   },
   {
     title: '操作',
+    render: (_, record) => {
+      console.log(record);
+      return (
+        <>
+          <Button type="link">编辑</Button>|<Button type="link">删除</Button>
+        </>
+      );
+    },
   },
 ];
 
@@ -50,10 +58,9 @@ const PAGE = {
 
 function useAuthList() {
   const [initAuthList, setInitAuthList] = useState();
-
-  useEffect(() => {
-    getInitAuthList();
-  }, []);
+  const [authList, setAuthList] = useState();
+  const [nameFilter, setNameFilter] = useState();
+  const [idFilter, setIdFilter] = useState();
 
   const getInitAuthList = async () => {
     const authList = await getAuthList();
@@ -61,14 +68,22 @@ function useAuthList() {
     console.log(initAuthList);
   };
 
-  return [initAuthList];
+  useEffect(() => {
+    getInitAuthList();
+  }, []);
+
+  useEffect(() => {
+    setAuthList(initAuthList);
+  }, [initAuthList]);
+
+  return [authList];
 }
 
 function NewService1() {
   // console.log(getAuthList());
-  const [initAuthList] = useAuthList();
+  const [authList] = useAuthList();
 
-  console.log(initAuthList);
+  console.log(authList);
 
   const authSerachForm = (
     <div>
@@ -99,7 +114,7 @@ function NewService1() {
     <div>
       <Table
         pagination={<Pagination total={50} />}
-        dataSource={initAuthList}
+        dataSource={authList}
         columns={columns}
       ></Table>
     </div>

@@ -254,6 +254,7 @@ function Home() {
       </Form>
     </div>
   );
+
   const eachCard = componentList.map((item, index) => {
     return (
       <Col span={6} key={item.id}>
