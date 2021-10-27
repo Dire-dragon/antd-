@@ -38,6 +38,11 @@ const { Content } = Layout;
 const { Meta } = Card;
 const { CheckableTag } = Tag;
 
+const RUNNING = {
+  STARTING: { text: '已启动', value: 'enabled' },
+  STOPPING: { text: '已停止', value: 'disabled' },
+};
+
 const option = [
   {
     label: '共享配置',
@@ -71,6 +76,7 @@ function useComponentList() {
 
   const getInitData = async () => {
     const dataSource = await getComponentList();
+    // console.log(dataSource);
     if (dataSource.code !== 0) {
       console.log('获取数据失败！');
       return;
@@ -86,12 +92,16 @@ function useComponentList() {
     const data =
       initData &&
       initData.filter((item) => {
+        console.log(item);
+        //判断名称过滤
         if (nameFilter !== '' && item.name.indexOf(nameFilter) === -1) {
           return false;
         }
+        //如果没有类型过滤
         if (typeFilterList.length === 0) {
           return true;
         }
+        //判断类型过滤
         if (typeFilterList.indexOf(item.type) > -1) {
           return true;
         }
@@ -140,18 +150,27 @@ function Home() {
     getInitData,
   ] = useComponentList();
   const [visible, setVisible] = useState(false);
-  const [popVisible, setPopVisible] = useState(false);
-  const [switchVisible, setSwitchVisible] = useState(false);
+  const [popIndex, setPopIndex] = useState('');
+  const [switchIndex, setSwitchIndex] = useState('');
   const [isAddType, setIsAddType] = useState(false);
 
   const onFinish = (values) => {
     onNameFilter(values.filter);
   };
 
-  const onToggleVisible = (info) => {
+  const onDrawerInit = (info) => {
     console.log(info);
-    if (typeof info === 'string') {
-      form.setFieldsValue({ name: '', type: '', shareCluster: '' });
+    if (info === 'close') {
+      setVisible(false);
+      return;
+    }
+    if (info === 'add') {
+      form.setFieldsValue({
+        id: new Date().getTime().toString(),
+        name: '',
+        type: '',
+        shareCluster: '',
+      });
       setIsAddType(true);
     } else if (typeof info === 'object') {
       form.setFieldsValue(info);
@@ -162,18 +181,34 @@ function Home() {
   };
 
   const onAddComponent = async (values) => {
-    const state = await addComponent(values);
-    console.log(state);
+    console.log(values);
+    const state = await addComponent({
+      ...values,
+      state: RUNNING.STARTING,
+    });
     if (state.code === 0) {
       getInitData();
-      onToggleVisible('close');
+      onDrawerInit('close');
     }
   };
 
   const onEditComponent = async (values) => {
-    console.log(values);
-    const state = await editComponent();
-    console.log(state);
+    console.log('baocun');
+    let data = values;
+    if (!values.state) {
+      data = {
+        ...values,
+        state: RUNNING.STOPPING,
+      };
+    }
+    console.log(data);
+    const state = await editComponent(data.id, data);
+
+    if (state.code === 0) {
+      getInitData();
+      onDrawerInit('close');
+      setSwitchIndex('');
+    }
   };
 
   const onDeleteComponent = async (id) => {
@@ -184,6 +219,7 @@ function Home() {
       return;
     }
     if (state.code === 0) {
+      setPopIndex('');
       getInitData();
     }
   };
@@ -218,7 +254,7 @@ function Home() {
       </Form>
     </div>
   );
-  const eachCard = componentList.map((item) => {
+  const eachCard = componentList.map((item, index) => {
     return (
       <Col span={6} key={item.id}>
         <Card
@@ -232,23 +268,28 @@ function Home() {
             <EditOutlined
               key="edit"
               onClick={() => {
-                onToggleVisible(item);
+                onDrawerInit(item);
               }}
             />,
             <>
-              <CloseOutlined
-                key="delete"
-                onClick={() => setPopVisible(!popVisible)}
-              />
+              <CloseOutlined key="delete" onClick={() => setPopIndex(index)} />
               <Popover
                 placement="topRight"
-                visible={popVisible}
-                content={<a>Close</a>}
-                title="Title"
+                visible={index === popIndex}
+                content={
+                  <>
+                    <Button onClick={() => setPopIndex('')}>取消</Button>
+                    <Button
+                      type="primary"
+                      onClick={() => onDeleteComponent(item.id)}
+                    >
+                      确认
+                    </Button>
+                  </>
+                }
+                title={`确认删除此组件吗？`}
                 trigger="click"
-              >
-                {/* <Button type="primary">Click me</Button> */}
-              </Popover>
+              ></Popover>
             </>,
           ]}
         >
@@ -260,7 +301,37 @@ function Home() {
             </Col>
             <Col span={8} offset={7}>
               启动状态
-              <Switch defaultChecked />
+              <Switch
+                checked={item.state.value === 'enabled'}
+                onClick={() => setSwitchIndex(index)}
+              />
+              <Popover
+                placement="topRight"
+                visible={index === switchIndex}
+                content={
+                  <>
+                    <Button onClick={() => setSwitchIndex('')}>取消</Button>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        onEditComponent({
+                          ...item,
+                          state:
+                            item.state.value === 'enabled'
+                              ? RUNNING.STOPPING
+                              : RUNNING.STARTING,
+                        });
+                      }}
+                    >
+                      确认
+                    </Button>
+                  </>
+                }
+                title={`确认${
+                  item.state.value === 'enabled' ? `停止` : `启动`
+                }?`}
+                trigger="click"
+              ></Popover>
             </Col>
           </Row>
         </Card>
@@ -277,7 +348,7 @@ function Home() {
               type="text"
               size="large"
               icon={[<PlusOutlined />]}
-              onClick={() => onToggleVisible('add')}
+              onClick={() => onDrawerInit('add')}
             >
               新增组件
             </Button>
@@ -293,9 +364,21 @@ function Home() {
       title={`${isAddType ? `新建` : `编辑`}网络组建`}
       width={370}
       visible={visible}
-      onClose={() => onToggleVisible('close')}
+      onClose={() => onDrawerInit('close')}
+      footer={
+        <>
+          <Button onClick={() => onDrawerInit('close')}>关闭</Button>
+          <Button type="primary" onClick={form.submit}>
+            保存
+          </Button>
+        </>
+      }
+      footerStyle={{ textAlign: 'right' }}
     >
       <Form form={form} onFinish={isAddType ? onAddComponent : onEditComponent}>
+        <Form.Item name="id" hidden={true}>
+          <Input />
+        </Form.Item>
         <Form.Item label="组件名称" name="name" rules={[{ required: true }]}>
           <Input />
         </Form.Item>
@@ -313,12 +396,6 @@ function Home() {
           rules={[{ required: true }]}
         >
           <Radio.Group options={option} />
-        </Form.Item>
-        <Form.Item>
-          <Button onClick={() => onToggleVisible('close')}>关闭</Button>
-          <Button type="primary" htmlType="submit">
-            保存
-          </Button>
         </Form.Item>
       </Form>
     </Drawer>
