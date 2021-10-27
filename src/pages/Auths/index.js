@@ -40,44 +40,6 @@ const options = [
   { label: '禁用', value: 'Pear' },
 ];
 
-const authColumns = [
-  {
-    title: '操作类型',
-    dataIndex: 'action',
-    key: 'action',
-    editable: true,
-  },
-  {
-    title: '名称',
-    dataIndex: 'name',
-    key: 'name',
-    editable: true,
-  },
-  {
-    title: '描述',
-    dataIndex: 'describe',
-    key: 'describe',
-    editable: true,
-  },
-  {
-    title: () => {
-      return (
-        <>
-          <span>操作</span>
-          <Button type={`text`} icon={[<PlusOutlined />]}></Button>
-        </>
-      );
-    },
-    render: (_, record) => {
-      return (
-        <>
-          <Button type="link">编辑</Button>|<Button type="link">删除</Button>
-        </>
-      );
-    },
-  },
-];
-
 const authDataSource = [
   {
     key: 'query',
@@ -152,7 +114,6 @@ function useAuthList() {
     {
       title: '操作',
       render: (_, record) => {
-        console.log(record);
         return (
           <>
             <Button type="link">编辑</Button>|
@@ -203,11 +164,12 @@ function useAuthList() {
 function NewService1() {
   const [columns, authList, setNameFilter, setIdFilter, setCurrent] =
     useAuthList();
+
   const [form] = Form.useForm();
+  const [visible, setVisible] = useState(false);
 
   const onFinish = (values) => {
     const { name, id } = values;
-    console.log(name, id);
     name !== '' ? setNameFilter(name) : setNameFilter('');
     id !== '' ? setIdFilter(id) : setIdFilter('');
   };
@@ -254,36 +216,62 @@ function NewService1() {
 
     const isEditing = (record) => record.key === editingKey;
 
-    const edit = (record) => {
+    const onAdd = () => {
       form.setFieldsValue({
         name: '',
-        age: '',
-        address: '',
+        action: '',
+        describe: '',
+      });
+      const newData = [
+        {
+          key: ``,
+          name: ``,
+          action: ``,
+          describe: ``,
+        },
+        ...data,
+      ];
+      setData(newData);
+    };
+
+    const onEdit = (record) => {
+      form.setFieldsValue({
+        name: '',
+        action: '',
+        describe: '',
         ...record,
       });
-      console.log(record.key);
       setEditingKey(record.key);
     };
 
-    const cancel = () => {
+    const onDelete = (record) => {
+      const dataSource = data.filter((item) => item.key !== record.key);
+      setData(dataSource);
+    };
+
+    const onCancel = () => {
+      onDelete({ key: '' });
       setEditingKey('');
     };
 
-    const save = async (key) => {
+    const onSave = async (record) => {
       try {
         //返回校验成功的数组
         const row = await form.validateFields();
         const newData = [...data];
-        const index = newData.findIndex((item) => key === item.key);
+        const index = newData.findIndex((item) => record.key === item.key);
 
         //如果存在，则覆盖，不存在则添加
         if (index > -1) {
+          console.log('1');
           const item = newData[index];
-          newData.splice(index, 1, { ...item, ...row });
+          newData.splice(index, 1, { ...item, ...row, key: row.action });
           setData(newData);
           setEditingKey('');
         } else {
-          newData.push(row);
+          console.log('old', newData);
+          newData.push({ ...row, key: row.action });
+          console.log('old', newData);
           setData(newData);
           setEditingKey('');
         }
@@ -313,7 +301,11 @@ function NewService1() {
           return (
             <>
               <span>操作</span>
-              <Button icon={[<PlusOutlined />]} type="text"></Button>
+              <Button
+                icon={[<PlusOutlined />]}
+                type="text"
+                onClick={onAdd}
+              ></Button>
             </>
           );
         },
@@ -324,29 +316,37 @@ function NewService1() {
             <span>
               <a
                 href="javascript:;"
-                onClick={() => save(record.key)}
+                onClick={() => onSave(record)}
                 style={{
                   marginRight: 8,
                 }}
               >
-                Save
+                保存
               </a>
-              <a onClick={cancel}>Cancel</a>
+              <a onClick={onCancel}>取消</a>
             </span>
           ) : (
-            <Typography.Link
-              disabled={editingKey !== ''}
-              onClick={() => edit(record)}
-            >
-              Edit
-            </Typography.Link>
+            <>
+              <Typography.Link
+                disabled={editingKey !== ''}
+                onClick={() => onEdit(record)}
+              >
+                编辑
+              </Typography.Link>
+              <span>|</span>
+              <Typography.Link
+                disabled={editingKey !== ''}
+                onClick={() => onDelete(record)}
+              >
+                删除
+              </Typography.Link>
+            </>
           );
         },
       },
     ];
 
     const mergedColumns = columns.map((col) => {
-      console.log(col);
       if (!col.editable) {
         return col;
       }
@@ -354,8 +354,6 @@ function NewService1() {
       return {
         ...col,
         onCell: (record) => {
-          console.log('col', col);
-          console.log(record);
           return {
             record,
             dataIndex: col.dataIndex,
@@ -365,14 +363,17 @@ function NewService1() {
         },
       };
     });
+
+    const component = {
+      body: {
+        cell: EditableCell,
+      },
+    };
+
     return (
       <Form form={form} component={false}>
         <Table
-          components={{
-            body: {
-              cell: EditableCell,
-            },
-          }}
+          components={component}
           bordered
           dataSource={data}
           columns={mergedColumns}
@@ -412,60 +413,63 @@ function NewService1() {
 
   const authAddBtn = (
     <div>
-      <Button type="primary" icon={[<PlusOutlined />]}>
+      <Button
+        type="primary"
+        icon={[<PlusOutlined />]}
+        onClick={() => setVisible(true)}
+      >
         新建
       </Button>
     </div>
   );
 
-  const addAuthModal = (
-    <Modal title={`新建权限`} visible={true} width={700}>
-      <Tabs defaultActiveKey="1">
-        <TabPane tab="基本信息" key="1">
-          <Form>
-            <Row>
-              <Col span={12}>
-                <Form.Item
-                  label={`权限标识（ID）：`}
-                  name={`id`}
-                  rules={[{ required: true }]}
-                >
-                  <Input placeholder={`只能由字母数字下划线组成`} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label={`权限名称：`}
-                  name={`name`}
-                  rules={[{ required: true }]}
-                >
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col span={8} offset={4}>
-                <Form.Item
-                  label={`状态`}
-                  name={`status`}
-                  rules={[{ required: true }]}
-                >
-                  <Radio.Group options={options} optionType="button" />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Form>
-        </TabPane>
-      </Tabs>
-      <EditableTable />
-      {/* <Table
-        title={() => '操作配置'}
-        size={`small`}
-        pagination={false}
-        bordered={true}
-        columns={authColumns}
-        dataSource={authDataSource}
-      ></Table> */}
-    </Modal>
-  );
+  const AddAuthModal = () => {
+    return (
+      <Modal
+        title={`新建权限`}
+        visible={visible}
+        width={800}
+        onCancel={() => setVisible(false)}
+      >
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="基本信息" key="1">
+            <Form>
+              <Row>
+                <Col span={12}>
+                  <Form.Item
+                    label={`权限标识（ID）：`}
+                    name={`id`}
+                    rules={[{ required: true }]}
+                  >
+                    <Input placeholder={`只能由字母数字下划线组成`} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label={`权限名称：`}
+                    name={`name`}
+                    rules={[{ required: true }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8} offset={4}>
+                  <Form.Item
+                    label={`状态`}
+                    name={`status`}
+                    rules={[{ required: true }]}
+                  >
+                    <Radio.Group options={options} optionType="button" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </TabPane>
+        </Tabs>
+        <EditableTable />
+      </Modal>
+    );
+  };
 
   const authTable = (
     <div>
@@ -494,7 +498,7 @@ function NewService1() {
         {authAddBtn}
         {authTable}
       </Content>
-      {addAuthModal}
+      <AddAuthModal />
     </Card>
   );
 }
