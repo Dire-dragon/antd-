@@ -20,7 +20,10 @@ const editAuth = function (id, detail) {
       const copiedAuth = [...auths];
       const target = auths.findIndex((c) => c.id === id);
       if (copiedAuth[target]) {
-        copiedAuth[target] = detail;
+        detail.name && (copiedAuth[target].name = detail.name);
+        detail.describe && (copiedAuth[target].describe = detail.describe);
+        detail.status && (copiedAuth[target].status = detail.status);
+        detail.actions && (copiedAuth[target].actions = detail.actions);
         resolve({
           code: 0,
           data: null,
