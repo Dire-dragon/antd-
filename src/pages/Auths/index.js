@@ -29,15 +29,15 @@ const { Content } = Layout;
 
 const { TabPane } = Tabs;
 
-const page = {
-  pageSize: 5,
-  total: 0,
-  pageSizeOptions: [10, 20, 30],
-};
+// const page = {
+//   pageSize: 5,
+//   total: 0,
+//   pageSizeOptions: [10, 20, 30],
+// };
 
 const options = [
-  { label: '启用', value: 'Apple' },
-  { label: '禁用', value: 'Pear' },
+  { label: '启用', value: 1 },
+  { label: '禁用', value: 0 },
 ];
 
 const authDataSource = [
@@ -85,13 +85,22 @@ const authDataSource = [
   },
 ];
 
-function useAuthList() {
-  const [initAuthList, setInitAuthList] = useState([]);
-  const [authList, setAuthList] = useState([]);
-  const [nameFilter, setNameFilter] = useState('');
-  const [idFilter, setIdFilter] = useState('');
-  const [current, setCurrent] = useState(1);
+let auth = {};
 
+//用户权限列表
+function useAuthList() {
+  //初始用户列表数据
+  const [initAuthList, setInitAuthList] = useState([]);
+  //显示用户列表数据
+  const [authList, setAuthList] = useState([]);
+  //名称过滤
+  const [nameFilter, setNameFilter] = useState('');
+  //id过滤
+  const [idFilter, setIdFilter] = useState('');
+  //当前页码
+  // const [current, setCurrent] = useState(1);
+
+  //表头
   const columns = [
     {
       title: 'ID',
@@ -126,6 +135,9 @@ function useAuthList() {
     },
   ];
 
+  /**
+   * 删除权限
+   */
   const onAuthDelete = (id) => {
     const tempList = initAuthList.filter((item) => {
       return item.id !== id;
@@ -133,9 +145,14 @@ function useAuthList() {
     setInitAuthList(tempList);
   };
 
+  /**
+   * 获取初始列表
+   */
   const getInitAuthList = async () => {
+    console.log('getInitAuthList');
     const authList = await getAuthList();
     setInitAuthList(authList.data);
+    console.log(authList);
   };
 
   useEffect(() => {
@@ -143,6 +160,7 @@ function useAuthList() {
   }, []);
 
   useEffect(() => {
+    console.log(1);
     let authListTemp = initAuthList;
     if (nameFilter) {
       authListTemp = authListTemp.filter((item) => {
@@ -154,36 +172,88 @@ function useAuthList() {
         return item.id.indexOf(idFilter) > -1;
       });
     }
-    page.total = authListTemp.length;
+    // page.total = authListTemp.length;
     setAuthList(authListTemp);
-  }, [initAuthList, nameFilter, idFilter, current]);
+  }, [initAuthList, nameFilter, idFilter]);
 
-  return [columns, authList, setNameFilter, setIdFilter, setCurrent];
+  const AuthTable = () => {
+    return (
+      <div>
+        <Table
+          bordered={true}
+          // pagination={{
+          //   ...page,
+          //   onChange: onPagenationChange,
+          //   showSizeChanger: true,
+          // }}
+          dataSource={authList}
+          columns={columns}
+        ></Table>
+      </div>
+    );
+  };
+
+  return [
+    setNameFilter,
+    setIdFilter,
+    // setCurrent,
+    getInitAuthList,
+    AuthTable,
+  ];
 }
 
 function NewService1() {
-  const [columns, authList, setNameFilter, setIdFilter, setCurrent] =
+  const [setNameFilter, setIdFilter, getInitAuthList, AuthTable] =
     useAuthList();
 
+  const [searchForm] = Form.useForm();
+  //权限表单
   const [form] = Form.useForm();
+  //信息表单
+  const [infoForm] = Form.useForm();
+
+  //模态框的显示
   const [visible, setVisible] = useState(false);
 
+  //搜索表单提交回调
   const onFinish = (values) => {
     const { name, id } = values;
     name !== '' ? setNameFilter(name) : setNameFilter('');
     id !== '' ? setIdFilter(id) : setIdFilter('');
   };
 
+  //搜索表单重置按钮回调
   const onReset = () => {
     setNameFilter('');
     setIdFilter('');
-    form.setFieldsValue({ name: '', id: '' });
+    searchForm.setFieldsValue({ name: '', id: '' });
   };
 
-  const onPagenationChange = (p, psize) => {
-    if (p) setCurrent(p);
+  //页码点击回调
+  // const onPagenationChange = (p, psize) => {
+  //   if (p) setCurrent(p);
+  // };
+
+  const onOk = () => {
+    infoForm.submit();
   };
 
+  const onAuthFormFinish = async (values) => {
+    auth = { ...auth, actions: [...values] };
+    setVisible(false);
+    const state = await addAuth(auth);
+    if (state.code === 0) {
+      auth = {};
+      getInitAuthList();
+    }
+  };
+
+  const onAddAuthFinish = (values) => {
+    auth = values;
+    form.submit();
+  };
+
+  //模态框中表格覆盖组件
   const EditableCell = ({ editing, dataIndex, title, children }) => {
     return (
       <td>
@@ -209,13 +279,13 @@ function NewService1() {
     );
   };
 
+  //模态框中表格组件
   const EditableTable = () => {
-    const [form] = Form.useForm();
     const [data, setData] = useState(authDataSource);
     const [editingKey, setEditingKey] = useState('');
-
     const isEditing = (record) => record.key === editingKey;
 
+    //添加权限
     const onAdd = () => {
       form.setFieldsValue({
         name: '',
@@ -234,6 +304,7 @@ function NewService1() {
       setData(newData);
     };
 
+    //编辑权限
     const onEdit = (record) => {
       form.setFieldsValue({
         name: '',
@@ -244,16 +315,19 @@ function NewService1() {
       setEditingKey(record.key);
     };
 
+    //删除权限
     const onDelete = (record) => {
       const dataSource = data.filter((item) => item.key !== record.key);
       setData(dataSource);
     };
 
+    //点击表格中取消的回调
     const onCancel = () => {
       onDelete({ key: '' });
       setEditingKey('');
     };
 
+    //保存的回调
     const onSave = async (record) => {
       try {
         //返回校验成功的数组
@@ -371,7 +445,11 @@ function NewService1() {
     };
 
     return (
-      <Form form={form} component={false}>
+      <Form
+        form={form}
+        component={false}
+        onFinish={() => onAuthFormFinish(data)}
+      >
         <Table
           components={component}
           bordered
@@ -384,44 +462,52 @@ function NewService1() {
     );
   };
 
-  const authSerachForm = (
-    <div>
-      <Form form={form} onFinish={onFinish}>
-        <Row>
-          <Col span={6}>
-            <Form.Item label="ID：" name="id">
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col span={6} offset={1}>
-            <Form.Item label="名称：" name="name">
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col span={5} offset={6}>
-            <Form.Item>
-              <Button type="primary" htmlType="submit">
-                查询
-              </Button>
-              <Button onClick={onReset}>重置</Button>
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-    </div>
-  );
+  //搜索表单
+  const AuthSerachForm = () => {
+    return (
+      <div>
+        <Form form={searchForm} onFinish={onFinish}>
+          <Row>
+            <Col span={6}>
+              <Form.Item label="ID：" name="id">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={6} offset={1}>
+              <Form.Item label="名称：" name="name">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={5} offset={6}>
+              <Form.Item>
+                <Button type="primary" htmlType="submit">
+                  查询
+                </Button>
+                <Button onClick={onReset}>重置</Button>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </div>
+    );
+  };
 
-  const authAddBtn = (
-    <div>
-      <Button
-        type="primary"
-        icon={[<PlusOutlined />]}
-        onClick={() => setVisible(true)}
-      >
-        新建
-      </Button>
-    </div>
-  );
+  const AuthAddBtn = () => {
+    infoForm.setFieldsValue({ name: '', status: '', id: '' });
+    return (
+      <div>
+        <Button
+          type="primary"
+          icon={[<PlusOutlined />]}
+          onClick={() => {
+            setVisible(true);
+          }}
+        >
+          新建
+        </Button>
+      </div>
+    );
+  };
 
   const AddAuthModal = () => {
     return (
@@ -430,10 +516,11 @@ function NewService1() {
         visible={visible}
         width={800}
         onCancel={() => setVisible(false)}
+        onOk={onOk}
       >
         <Tabs defaultActiveKey="1">
           <TabPane tab="基本信息" key="1">
-            <Form>
+            <Form form={infoForm} onFinish={onAddAuthFinish}>
               <Row>
                 <Col span={12}>
                   <Form.Item
@@ -471,21 +558,6 @@ function NewService1() {
     );
   };
 
-  const authTable = (
-    <div>
-      <Table
-        bordered={true}
-        pagination={{
-          ...page,
-          onChange: onPagenationChange,
-          showSizeChanger: true,
-        }}
-        dataSource={authList}
-        columns={columns}
-      ></Table>
-    </div>
-  );
-
   return (
     <Card>
       <Breadcrumb separator=">">
@@ -494,9 +566,9 @@ function NewService1() {
       </Breadcrumb>
 
       <Content style={{ margin: '15px 0' }}>
-        {authSerachForm}
-        {authAddBtn}
-        {authTable}
+        <AuthSerachForm />
+        <AuthAddBtn />
+        <AuthTable />
       </Content>
       <AddAuthModal />
     </Card>
