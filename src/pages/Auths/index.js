@@ -85,6 +85,8 @@ const authDataSource = [
   },
 ];
 
+let editAuthList = [];
+
 let auth = {};
 
 //用户权限列表
@@ -97,6 +99,15 @@ function useAuthList() {
   const [nameFilter, setNameFilter] = useState('');
   //id过滤
   const [idFilter, setIdFilter] = useState('');
+  //权限表单
+  const [form] = Form.useForm();
+  //信息表单
+  const [infoForm] = Form.useForm();
+  //模态框的显示
+  const [visible, setVisible] = useState(false);
+  //当前是否是新增权限
+  const [isAddAuth, setIsAddAuth] = useState(true);
+
   //当前页码
   // const [current, setCurrent] = useState(1);
 
@@ -125,7 +136,10 @@ function useAuthList() {
       render: (_, record) => {
         return (
           <>
-            <Button type="link">编辑</Button>|
+            <Button type="link" onClick={() => onEditAuth(record)}>
+              编辑
+            </Button>
+            |
             <Button type="link" onClick={() => onAuthDelete(record.id)}>
               删除
             </Button>
@@ -145,14 +159,60 @@ function useAuthList() {
     setInitAuthList(tempList);
   };
 
+  const onOk = () => {
+    infoForm.submit();
+  };
+
+  const onAddAuthFinish = (values) => {
+    auth = values;
+    form.submit();
+  };
+
+  const onAuthFormFinish = async (values) => {
+    auth = { ...auth, actions: [...values] };
+    setVisible(false);
+    if (isAddAuth) {
+      setInitAuthList([auth, ...initAuthList]);
+    } else {
+      const newAuthList = initAuthList.map((item) => {
+        if (item.id === auth.id) {
+          return auth;
+        }
+        return item;
+      });
+      setInitAuthList(newAuthList);
+    }
+    // const state = await addAuth(auth);
+
+    // if (state.code === 0) {
+    //   auth = {};
+    //   getInitAuthList();
+    // }
+  };
+
+  const onEditAuth = (values) => {
+    console.log(22);
+    infoForm.setFieldsValue(values);
+    editAuthList = values.actions.map((item) => {
+      console.log(item);
+      return {
+        action: item.action,
+        name: item.name,
+        describe: item.describe,
+        key: item.action,
+      };
+    });
+    setIsAddAuth(false);
+    setVisible(true);
+    // console.log(values);
+  };
+
   /**
    * 获取初始列表
    */
   const getInitAuthList = async () => {
-    console.log('getInitAuthList');
     const authList = await getAuthList();
     setInitAuthList(authList.data);
-    console.log(authList);
   };
 
   useEffect(() => {
@@ -160,7 +220,6 @@ function useAuthList() {
   }, []);
 
   useEffect(() => {
-    console.log(1);
     let authListTemp = initAuthList;
     if (nameFilter) {
       authListTemp = authListTemp.filter((item) => {
@@ -193,66 +252,6 @@ function useAuthList() {
     );
   };
 
-  return [
-    setNameFilter,
-    setIdFilter,
-    // setCurrent,
-    getInitAuthList,
-    AuthTable,
-  ];
-}
-
-function NewService1() {
-  const [setNameFilter, setIdFilter, getInitAuthList, AuthTable] =
-    useAuthList();
-
-  const [searchForm] = Form.useForm();
-  //权限表单
-  const [form] = Form.useForm();
-  //信息表单
-  const [infoForm] = Form.useForm();
-
-  //模态框的显示
-  const [visible, setVisible] = useState(false);
-
-  //搜索表单提交回调
-  const onFinish = (values) => {
-    const { name, id } = values;
-    name !== '' ? setNameFilter(name) : setNameFilter('');
-    id !== '' ? setIdFilter(id) : setIdFilter('');
-  };
-
-  //搜索表单重置按钮回调
-  const onReset = () => {
-    setNameFilter('');
-    setIdFilter('');
-    searchForm.setFieldsValue({ name: '', id: '' });
-  };
-
-  //页码点击回调
-  // const onPagenationChange = (p, psize) => {
-  //   if (p) setCurrent(p);
-  // };
-
-  const onOk = () => {
-    infoForm.submit();
-  };
-
-  const onAuthFormFinish = async (values) => {
-    auth = { ...auth, actions: [...values] };
-    setVisible(false);
-    const state = await addAuth(auth);
-    if (state.code === 0) {
-      auth = {};
-      getInitAuthList();
-    }
-  };
-
-  const onAddAuthFinish = (values) => {
-    auth = values;
-    form.submit();
-  };
-
   //模态框中表格覆盖组件
   const EditableCell = ({ editing, dataIndex, title, children }) => {
     return (
@@ -281,7 +280,7 @@ function NewService1() {
 
   //模态框中表格组件
   const EditableTable = () => {
-    const [data, setData] = useState(authDataSource);
+    const [data, setData] = useState(isAddAuth ? authDataSource : editAuthList);
     const [editingKey, setEditingKey] = useState('');
     const isEditing = (record) => record.key === editingKey;
 
@@ -306,6 +305,7 @@ function NewService1() {
 
     //编辑权限
     const onEdit = (record) => {
+      console.log(record);
       form.setFieldsValue({
         name: '',
         action: '',
@@ -462,6 +462,111 @@ function NewService1() {
     );
   };
 
+  const AuthAddBtn = () => {
+    return (
+      <div>
+        <Button
+          type="primary"
+          icon={[<PlusOutlined />]}
+          onClick={() => {
+            setIsAddAuth(true);
+            infoForm.setFieldsValue({ name: '', status: '', id: '' });
+            setVisible(true);
+          }}
+        >
+          新建
+        </Button>
+      </div>
+    );
+  };
+
+  const AddAuthModal = () => {
+    return (
+      <Modal
+        title={`${isAddAuth ? '新建' : '编辑'}权限`}
+        visible={visible}
+        width={800}
+        onCancel={() => setVisible(false)}
+        onOk={onOk}
+      >
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="基本信息" key="1">
+            <Form form={infoForm} onFinish={onAddAuthFinish}>
+              <Row>
+                <Col span={12}>
+                  <Form.Item
+                    label={`权限标识（ID）：`}
+                    name={`id`}
+                    rules={[{ required: true }]}
+                  >
+                    <Input
+                      disabled={!isAddAuth}
+                      placeholder={`只能由字母数字下划线组成`}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label={`权限名称：`}
+                    name={`name`}
+                    rules={[{ required: true }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8} offset={4}>
+                  <Form.Item
+                    label={`状态`}
+                    name={`status`}
+                    rules={[{ required: true }]}
+                  >
+                    <Radio.Group options={options} optionType="button" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </TabPane>
+        </Tabs>
+        <EditableTable />
+      </Modal>
+    );
+  };
+
+  return [
+    setNameFilter,
+    setIdFilter,
+    // setCurrent,
+    AuthTable,
+    AuthAddBtn,
+    AddAuthModal,
+  ];
+}
+
+function NewService1() {
+  const [setNameFilter, setIdFilter, AuthTable, AuthAddBtn, AddAuthModal] =
+    useAuthList();
+
+  const [searchForm] = Form.useForm();
+
+  //搜索表单提交回调
+  const onFinish = (values) => {
+    const { name, id } = values;
+    name !== '' ? setNameFilter(name) : setNameFilter('');
+    id !== '' ? setIdFilter(id) : setIdFilter('');
+  };
+
+  //搜索表单重置按钮回调
+  const onReset = () => {
+    setNameFilter('');
+    setIdFilter('');
+    searchForm.setFieldsValue({ name: '', id: '' });
+  };
+
+  //页码点击回调
+  // const onPagenationChange = (p, psize) => {
+  //   if (p) setCurrent(p);
+  // };
+
   //搜索表单
   const AuthSerachForm = () => {
     return (
@@ -489,72 +594,6 @@ function NewService1() {
           </Row>
         </Form>
       </div>
-    );
-  };
-
-  const AuthAddBtn = () => {
-    infoForm.setFieldsValue({ name: '', status: '', id: '' });
-    return (
-      <div>
-        <Button
-          type="primary"
-          icon={[<PlusOutlined />]}
-          onClick={() => {
-            setVisible(true);
-          }}
-        >
-          新建
-        </Button>
-      </div>
-    );
-  };
-
-  const AddAuthModal = () => {
-    return (
-      <Modal
-        title={`新建权限`}
-        visible={visible}
-        width={800}
-        onCancel={() => setVisible(false)}
-        onOk={onOk}
-      >
-        <Tabs defaultActiveKey="1">
-          <TabPane tab="基本信息" key="1">
-            <Form form={infoForm} onFinish={onAddAuthFinish}>
-              <Row>
-                <Col span={12}>
-                  <Form.Item
-                    label={`权限标识（ID）：`}
-                    name={`id`}
-                    rules={[{ required: true }]}
-                  >
-                    <Input placeholder={`只能由字母数字下划线组成`} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label={`权限名称：`}
-                    name={`name`}
-                    rules={[{ required: true }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={8} offset={4}>
-                  <Form.Item
-                    label={`状态`}
-                    name={`status`}
-                    rules={[{ required: true }]}
-                  >
-                    <Radio.Group options={options} optionType="button" />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </Form>
-          </TabPane>
-        </Tabs>
-        <EditableTable />
-      </Modal>
     );
   };
 

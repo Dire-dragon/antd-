@@ -14,6 +14,7 @@ import {
   Select,
   Radio,
   Popover,
+  Popconfirm,
 } from 'antd';
 import { CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 /**
@@ -75,12 +76,11 @@ function useComponentList() {
 
   const getInitData = async () => {
     const dataSource = await getComponentList();
-    // console.log(dataSource);
     if (dataSource.code !== 0) {
       console.log('获取数据失败！');
       return;
     }
-    setInitData(dataSource.data);
+    setInitData([...dataSource.data]);
   };
 
   //获取初始化列表
@@ -149,8 +149,6 @@ function Home() {
     getInitData,
   ] = useComponentList();
   const [visible, setVisible] = useState(false);
-  const [popIndex, setPopIndex] = useState('');
-  const [switchIndex, setSwitchIndex] = useState('');
   const [isAddType, setIsAddType] = useState(false);
 
   const onFinish = (values) => {
@@ -175,7 +173,6 @@ function Home() {
       form.setFieldsValue(info);
       setIsAddType(false);
     }
-    // console.log(visible);
     setVisible(!visible);
   };
 
@@ -192,7 +189,7 @@ function Home() {
   };
 
   const onEditComponent = async (values) => {
-    console.log('baocun');
+    console.log('values:', values.state);
     let data = values;
     if (!values.state) {
       data = {
@@ -200,13 +197,11 @@ function Home() {
         state: RUNNING.STOPPING,
       };
     }
-    console.log(data);
     const state = await editComponent(data.id, data);
 
     if (state.code === 0) {
       getInitData();
       onDrawerInit('close');
-      setSwitchIndex('');
     }
   };
 
@@ -218,7 +213,6 @@ function Home() {
       return;
     }
     if (state.code === 0) {
-      setPopIndex('');
       getInitData();
     }
   };
@@ -272,24 +266,14 @@ function Home() {
               }}
             />,
             <>
-              <CloseOutlined key="delete" onClick={() => setPopIndex(index)} />
-              <Popover
-                placement="topRight"
-                visible={index === popIndex}
-                content={
-                  <>
-                    <Button onClick={() => setPopIndex('')}>取消</Button>
-                    <Button
-                      type="primary"
-                      onClick={() => onDeleteComponent(item.id)}
-                    >
-                      确认
-                    </Button>
-                  </>
-                }
+              <Popconfirm
                 title={`确认删除此组件吗？`}
-                trigger="click"
-              ></Popover>
+                onConfirm={() => onDeleteComponent(item.id)}
+                okText="确定"
+                cancelText="取消"
+              >
+                <CloseOutlined key="delete" />
+              </Popconfirm>
             </>,
           ]}
         >
@@ -301,37 +285,22 @@ function Home() {
             </Col>
             <Col span={8} offset={7}>
               启动状态
-              <Switch
-                checked={item.state.value === 'enabled'}
-                onClick={() => setSwitchIndex(index)}
-              />
-              <Popover
-                placement="topRight"
-                visible={index === switchIndex}
-                content={
-                  <>
-                    <Button onClick={() => setSwitchIndex('')}>取消</Button>
-                    <Button
-                      type="primary"
-                      onClick={() => {
-                        onEditComponent({
-                          ...item,
-                          state:
-                            item.state.value === 'enabled'
-                              ? RUNNING.STOPPING
-                              : RUNNING.STARTING,
-                        });
-                      }}
-                    >
-                      确认
-                    </Button>
-                  </>
-                }
-                title={`确认${
-                  item.state.value === 'enabled' ? `停止` : `启动`
-                }?`}
-                trigger="click"
-              ></Popover>
+              <Popconfirm
+                title={`确认${item.state.value === 'enabled' ? `停止` : `启动`}?`}
+                onConfirm={() => {
+                  onEditComponent({
+                    ...item,
+                    state:
+                      item.state.value === 'enabled'
+                        ? RUNNING.STOPPING
+                        : RUNNING.STARTING,
+                  });
+                }}
+                okText="确定"
+                cancelText="取消"
+              >
+                <Switch checked={item.state.value === 'enabled'} />
+              </Popconfirm>
             </Col>
           </Row>
         </Card>
